@@ -130,7 +130,16 @@ public struct RunOptions: Hashable, Sendable {
     /// Host directories to share, in tart's `name:path[:ro]` format.
     public var sharedDirectories: [String] = []
     /// Bridged interface name, nil for the default shared (NAT) network.
+    /// Ignored when `softnet` is on, since tart accepts only one network mode.
     public var bridgedInterface: String?
+    /// Run behind Softnet (`--net-softnet`), which isolates the VM from the
+    /// host's LAN and from other VMs.
+    public var softnet = false
+    /// CIDRs the VM may still reach under Softnet (`--net-softnet-allow`).
+    public var softnetAllow: [String] = []
+    /// Port forwards from host to VM under Softnet, as `host:guest`
+    /// (`--net-softnet-expose`).
+    public var softnetExpose: [String] = []
 
     public init() {}
 }
