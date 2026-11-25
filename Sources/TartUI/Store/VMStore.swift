@@ -107,15 +107,15 @@ final class VMStore {
         perform {
             let cli = try self.requireCLI()
             let log = FileManager.default.temporaryDirectory.appendingPathComponent("tartui-\(name).log")
-            let process = try cli.start(name: name, options: options, logFile: log) { [weak self] code in
+            let process = try cli.start(name: name, options: options, logFile: log) { [weak store = self] code in
                 Task { @MainActor in
-                    self?.runProcesses[name] = nil
+                    store?.runProcesses[name] = nil
                     if code != 0 {
                         let tail = (try? String(contentsOf: log, encoding: .utf8))?
                             .split(separator: "\n").suffix(3).joined(separator: "\n") ?? ""
-                        self?.lastError = "\(name) exited with code \(code). \(tail)"
+                        store?.lastError = "\(name) exited with code \(code). \(tail)"
                     }
-                    await self?.refresh(silently: true)
+                    await store?.refresh(silently: true)
                 }
             }
             self.runProcesses[name] = process
