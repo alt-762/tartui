@@ -9,6 +9,8 @@ struct VMDetailView: View {
 
     @State private var runOptions = RunOptions()
     @State private var sharedDir = ""
+    @State private var softnetAllow = ""
+    @State private var softnetExpose = ""
     @State private var ip: String?
     @State private var confirmDelete = false
 
@@ -55,6 +57,14 @@ struct VMDetailView: View {
                 HStack {
                     TextField("Shared folder (name:/path[:ro])", text: $sharedDir)
                     Button("Choose…", action: chooseSharedFolder)
+                }
+                Toggle("Isolate network (Softnet)", isOn: $runOptions.softnet)
+                    .help("Runs with --net-softnet: the VM can reach the internet but not your LAN or other VMs. tart may ask for your password the first time to set up the softnet helper.")
+                if runOptions.softnet {
+                    TextField("Allow networks (CIDRs, comma-separated)", text: $softnetAllow, prompt: Text("192.168.1.0/24"))
+                        .help("--net-softnet-allow: networks the VM may still reach")
+                    TextField("Expose ports (host:guest, comma-separated)", text: $softnetExpose, prompt: Text("2222:22, 8080:80"))
+                        .help("--net-softnet-expose: forward host ports into the VM")
                 }
             }
             .disabled(vm.isRunning)
@@ -129,10 +139,17 @@ struct VMDetailView: View {
             Button {
                 var opts = runOptions
                 if !sharedDir.isEmpty { opts.sharedDirectories = [sharedDir] }
+                opts.softnetAllow = Self.splitList(softnetAllow)
+                opts.softnetExpose = Self.splitList(softnetExpose)
                 store.start(vm.name, options: opts)
             } label: { Label(vm.isSuspended ? "Resume" : "Start", systemImage: "play.fill") }
                 .buttonStyle(.borderedProminent)
         }
+    }
+
+    /// Splits a comma- or whitespace-separated field into trimmed, non-empty items.
+    static func splitList(_ text: String) -> [String] {
+        text.split(whereSeparator: { $0 == "," || $0.isWhitespace }).map(String.init)
     }
 
     private var hasChanges: Bool {

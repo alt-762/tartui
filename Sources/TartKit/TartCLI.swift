@@ -123,7 +123,17 @@ public struct TartCLI: Sendable {
         if options.noGraphics { args.append("--no-graphics") }
         if options.recovery { args.append("--recovery") }
         for dir in options.sharedDirectories { args += ["--dir", dir] }
-        if let iface = options.bridgedInterface { args += ["--net-bridged", iface] }
+        if options.softnet {
+            args.append("--net-softnet")
+            if !options.softnetAllow.isEmpty {
+                args += ["--net-softnet-allow", options.softnetAllow.joined(separator: ",")]
+            }
+            if !options.softnetExpose.isEmpty {
+                args += ["--net-softnet-expose", options.softnetExpose.joined(separator: ",")]
+            }
+        } else if let iface = options.bridgedInterface {
+            args += ["--net-bridged", iface]
+        }
         return args
     }
 

@@ -8,7 +8,7 @@ A native macOS app (SwiftUI) for [Tart](https://github.com/cirruslabs/tart) virt
 |---|---|---|
 | VMs | List local VMs with live state | `tart list --format json` (polled every 5s) |
 | Create | From a registry image, from a macOS IPSW, or an empty Linux VM | `tart clone <image> <name>`, `tart create --from-ipsw`, `tart create --linux` |
-| Run | Start (with headless, recovery, shared folder), stop, suspend, see IP, copy SSH command | `tart run`, `tart stop`, `tart suspend`, `tart ip` |
+| Run | Start (with headless, recovery, shared folder, Softnet isolation with allowed networks and exposed ports), stop, suspend, see IP, copy SSH command | `tart run`, `tart stop`, `tart suspend`, `tart ip` |
 | Clone | Clone any local VM or cached image into a new VM | `tart clone` |
 | Settings | CPU, memory, disk size, display | `tart get --format json`, `tart set` |
 | Images | List cached OCI images, pull, push, delete, registry login, prune cache | `tart pull`, `tart push`, `tart delete`, `tart login`, `tart prune` |

@@ -39,4 +39,17 @@ final class DecodingTests: XCTestCase {
         XCTAssertEqual(cli.runArguments(name: "vm", options: opts),
                        ["run", "vm", "--no-graphics", "--dir", "src:/Users/me/src"])
     }
+
+    func testRunArgumentsSoftnet() {
+        let cli = TartCLI(binary: URL(fileURLWithPath: "/usr/bin/true"))
+        var opts = RunOptions()
+        opts.softnet = true
+        opts.bridgedInterface = "en0"
+        opts.softnetAllow = ["192.168.1.0/24", "10.0.0.0/8"]
+        opts.softnetExpose = ["2222:22"]
+        XCTAssertEqual(cli.runArguments(name: "vm", options: opts),
+                       ["run", "vm", "--net-softnet",
+                        "--net-softnet-allow", "192.168.1.0/24,10.0.0.0/8",
+                        "--net-softnet-expose", "2222:22"])
+    }
 }
