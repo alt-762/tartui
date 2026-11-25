@@ -63,6 +63,36 @@ swift test                # TartKit unit tests
 
 Or open `Package.swift` in Xcode and press Run.
 
+## Releasing
+
+Push a version tag and GitHub Actions builds the app, packages it as a DMG and
+attaches it (plus a SHA-256 checksum) to a GitHub Release:
+
+```sh
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The tag (minus the leading `v`) becomes `CFBundleShortVersionString`. Tags with
+a suffix such as `v0.2.0-beta.1` are published as pre-releases. You can also
+re-run a release for an existing tag from the Actions tab (Release, Run workflow).
+
+To build a DMG locally: `./scripts/bundle.sh && ./scripts/make_dmg.sh 0.2.0`.
+
+Signing and notarization are optional. Without secrets the app is ad-hoc signed,
+so on first launch users need to right-click the app and choose Open (or run
+`xattr -dr com.apple.quarantine /Applications/TartUI.app`). To ship a signed and
+notarized DMG, add these repository secrets:
+
+| Secret | Value |
+| --- | --- |
+| `MACOS_CERTIFICATE` | base64 of a Developer ID Application `.p12` |
+| `MACOS_CERTIFICATE_PASSWORD` | password of that `.p12` |
+| `MACOS_SIGNING_IDENTITY` | e.g. `Developer ID Application: Your Name (TEAMID)` |
+| `APPLE_ID` | Apple ID email used for notarization |
+| `APPLE_APP_PASSWORD` | app-specific password for that Apple ID |
+| `APPLE_TEAM_ID` | your 10-character team ID |
+
 ## Roadmap
 
 - [ ] Menu bar extra with quick start/stop
