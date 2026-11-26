@@ -63,6 +63,9 @@ swift test                # TartKit unit tests
 
 Or open `Package.swift` in Xcode and press Run.
 
+The app icon lives in `Resources/AppIcon.svg`. After editing it, run
+`./scripts/make_icon.sh` to regenerate `Resources/AppIcon.icns` and `AppIcon.png`.
+
 ## Releasing
 
 Push a version tag and GitHub Actions builds the app, packages it as a DMG and
@@ -100,4 +103,5 @@ notarized DMG, add these repository secrets:
 - [ ] Image browser for ghcr.io/cirruslabs with tags
 - [ ] Export / import (`tart export`, `tart import`)
 - [ ] Notifications when long jobs finish
-- [ ] App icon and proper Xcode project for notarized releases
+- [x] App icon
+- [ ] Proper Xcode project for notarized releases
