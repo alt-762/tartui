@@ -20,9 +20,35 @@ public enum TartCLIError: LocalizedError, Sendable {
 /// touches `~/.tart` directly and stays compatible with tart upgrades.
 public struct TartCLI: Sendable {
     public let binary: URL
+    /// Environment every tart invocation runs with. See `launchEnvironment`.
+    public let environment: [String: String]
 
-    public init(binary: URL) {
+    public init(binary: URL, baseEnvironment: [String: String] = ProcessInfo.processInfo.environment) {
         self.binary = binary
+        self.environment = Self.launchEnvironment(binary: binary, base: baseEnvironment)
+    }
+
+    /// Directories prepended to PATH for tart's child processes.
+    static let extraSearchPaths = ["/opt/homebrew/bin", "/usr/local/bin"]
+
+    /// Builds the environment tart is launched with.
+    ///
+    /// Apps started from Finder/Dock get a minimal PATH (`/usr/bin:/bin:/usr/sbin:/sbin`).
+    /// tart looks up helpers such as `softnet` (for `--net-softnet`) via PATH, so without
+    /// this a Homebrew install of softnet is never found and `tart run --net-softnet` fails.
+    public static func launchEnvironment(binary: URL, base: [String: String]) -> [String: String] {
+        var env = base
+        let existing = (base["PATH"]?.isEmpty == false ? base["PATH"]! : "/usr/bin:/bin:/usr/sbin:/sbin")
+            .split(separator: ":").map(String.init)
+        let candidates = [binary.deletingLastPathComponent().path] + extraSearchPaths + existing
+        var seen = Set<String>()
+        env["PATH"] = candidates.filter { !$0.isEmpty && seen.insert($0).inserted }.joined(separator: ":")
+        return env
+    }
+
+    /// PATH entries tart will search, in order.
+    public var searchPath: [String] {
+        (environment["PATH"] ?? "").split(separator: ":").map(String.init)
     }
 
     /// Finds tart in the usual install locations, or via an explicit override.
@@ -49,7 +75,7 @@ public struct TartCLI: Sendable {
 
     @discardableResult
     func run(_ args: [String]) async throws -> String {
-        let result = try await ProcessRunner.run(binary, arguments: args)
+        let result = try await ProcessRunner.run(binary, arguments: args, environment: environment)
         guard result.exitCode == 0 else {
             throw ProcessError.nonZeroExit(
                 command: (["tart"] + args).joined(separator: " "),
@@ -61,7 +87,7 @@ public struct TartCLI: Sendable {
     }
 
     func stream(_ args: [String]) -> AsyncThrowingStream<String, Error> {
-        ProcessRunner.stream(binary, arguments: args)
+        ProcessRunner.stream(binary, arguments: args, environment: environment)
     }
 
     // MARK: - Queries
@@ -146,8 +172,21 @@ public struct TartCLI: Sendable {
         try ProcessRunner.launchDetached(
             binary,
             arguments: runArguments(name: name, options: options),
+            environment: environment,
             logFile: logFile,
             onExit: onExit
+        )
+    }
+
+    /// Host and Softnet checks to run before `start`, so failures are explained
+    /// up front instead of surfacing as a cryptic exit code.
+    public func preflight(_ options: RunOptions) async -> LaunchProblem? {
+        let path = searchPath
+        return await LaunchPreflight.check(
+            options: options,
+            hypervisorAvailable: HostSupport.hypervisorAvailable(),
+            isVirtualMachine: HostSupport.isVirtualMachine(),
+            softnetStatus: { await Softnet.status(searchPath: path) }
         )
     }
 
@@ -203,7 +242,7 @@ public struct TartCLI: Sendable {
     /// `tart login <host> --username <u> --password-stdin`
     public func login(host: String, username: String, password: String) async throws {
         let args = ["login", host, "--username", username, "--password-stdin"]
-        let result = try await ProcessRunner.run(binary, arguments: args, stdin: password)
+        let result = try await ProcessRunner.run(binary, arguments: args, environment: environment, stdin: password)
         guard result.exitCode == 0 else {
             throw ProcessError.nonZeroExit(command: "tart login \(host)", code: result.exitCode, stderr: result.stderr)
         }

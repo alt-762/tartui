@@ -43,7 +43,10 @@ Design choices:
 
 - **Wrap the CLI, don't reimplement it.** Every action maps to one `tart` subcommand, so the app keeps working as tart evolves and never edits `~/.tart` directly.
 - **TartKit is UI-free** so it can be unit tested and reused (e.g. a future menu bar extra or widget).
-- **`tart run` is launched detached.** The VM window is tart's own; the app tracks the process and refreshes when it exits. If it crashes, the last log lines are shown in an alert.
+- **`tart run` is launched detached.** The VM window is tart's own; the app tracks the process and refreshes when it exits. If it crashes, the last log lines are shown in an alert and the full output stays in `~/Library/Logs/TartUI/<vm>.log`.
+- **tart gets a usable PATH.** Apps opened from Finder only see `/usr/bin:/bin:/usr/sbin:/sbin`, so tart's child processes get the tart directory, `/opt/homebrew/bin` and `/usr/local/bin` prepended. Without this tart can't find `softnet`.
+- **Checks before launching.** Before `tart run` the app checks that the Mac supports virtualization (a Mac that is itself a VM can't run tart VMs) and, for Softnet, that `softnet` is installed and setuid root. tart normally asks for a sudo password in Terminal to set that up; a GUI launch has no terminal, so the app asks once with the standard macOS admin dialog instead.
+- **Run options are remembered per VM** (Softnet, allowed networks, exposed ports, shared folder, headless, recovery) and reused by Start in the sidebar menu too.
 - **Long jobs stream.** Pull, push, create and clone print progress; `ProcessRunner.stream` splits on `\n` and `\r` so progress bars show up line by line in Activity.
 - **Polling** keeps the list in sync with VMs started or stopped from the terminal or CI.
 
@@ -52,6 +55,7 @@ Design choices:
 - Apple Silicon Mac, macOS 14 Sonoma or later
 - Xcode 15.3+ (Swift 5.10)
 - tart: `brew install cirruslabs/cli/tart`
+- For Softnet network isolation: `brew install cirruslabs/cli/softnet`
 
 ## Build and run
 

@@ -134,6 +134,19 @@ struct ContentView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .showLogin)) { _ in sheet = .login }
+        .alert(
+            "Set up Softnet?",
+            isPresented: Binding(
+                get: { store.pendingSoftnetSetup != nil },
+                set: { if !$0 { store.pendingSoftnetSetup = nil } }
+            ),
+            presenting: store.pendingSoftnetSetup
+        ) { pending in
+            Button("Set Up and Start") { store.completeSoftnetSetup(pending) }
+            Button("Cancel", role: .cancel) { store.pendingSoftnetSetup = nil }
+        } message: { pending in
+            Text("Softnet isolates \(pending.vm)'s network. It needs administrator rights once: macOS will ask for your password to set the setuid bit on \(pending.softnetPath). This is what `tart run --net-softnet` asks for in Terminal.")
+        }
         .alert("Tart error", isPresented: Binding(
             get: { store.lastError != nil },
             set: { if !$0 { store.lastError = nil } }
