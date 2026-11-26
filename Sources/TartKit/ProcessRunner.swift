@@ -131,12 +131,17 @@ public enum ProcessRunner {
     public static func launchDetached(
         _ executable: URL,
         arguments: [String],
+        environment: [String: String]? = nil,
         logFile: URL? = nil,
         onExit: @escaping @Sendable (Int32) -> Void
     ) throws -> Process {
         let process = Process()
         process.executableURL = executable
         process.arguments = arguments
+        if let environment { process.environment = environment }
+        // Never let the child read the app's stdin: tools that fall back to an
+        // interactive prompt (e.g. sudo) should fail fast instead of hanging.
+        process.standardInput = FileHandle.nullDevice
         if let logFile {
             FileManager.default.createFile(atPath: logFile.path, contents: nil)
             let handle = try FileHandle(forWritingTo: logFile)
@@ -147,7 +152,11 @@ public enum ProcessRunner {
             process.standardError = FileHandle.nullDevice
         }
         process.terminationHandler = { onExit($0.terminationStatus) }
-        try process.run()
+        do {
+            try process.run()
+        } catch {
+            throw ProcessError.launchFailed(error.localizedDescription)
+        }
         return process
     }
 }

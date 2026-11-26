@@ -19,6 +19,14 @@ final class TartOperation: Identifiable {
     var isRunning: Bool { if case .running = status { return true } else { return false } }
 }
 
+/// A start that is waiting for the user to approve Softnet's one-time admin setup.
+struct PendingSoftnetSetup: Identifiable, Equatable {
+    let vm: String
+    let options: RunOptions
+    let softnetPath: String
+    var id: String { vm }
+}
+
 /// App-wide state. Owns the TartCLI and is the single place views go through.
 @MainActor
 @Observable
@@ -33,6 +41,11 @@ final class VMStore {
     private(set) var isRefreshing = false
     /// False until the first `tart list` has finished (successfully or not).
     private(set) var hasLoaded = false
+    /// VMs whose `tart run` is being prepared or launched, so Start can't be double-clicked.
+    private(set) var startingVMs: Set<String> = []
+    /// Set when a Softnet start needs the user to approve the admin prompt.
+    var pendingSoftnetSetup: PendingSoftnetSetup?
+    private let runOptionsStore = RunOptionsStore()
 
     /// `tart run` processes started by this app, keyed by VM name.
     private var runProcesses: [String: Process] = [:]
@@ -135,25 +148,76 @@ final class VMStore {
 
     // MARK: - Lifecycle
 
-    func start(_ name: String, options: RunOptions = RunOptions()) {
+    /// Saved run options for a VM (Softnet, shared folder, headless...).
+    func runOptions(for name: String) -> RunOptions {
+        runOptionsStore.options(for: name)
+    }
+
+    func saveRunOptions(_ options: RunOptions, for name: String) {
+        runOptionsStore.save(options, for: name)
+    }
+
+    /// Starts a VM with the given options, or with its saved options when nil.
+    /// Runs host/Softnet checks first; if Softnet needs its one-time admin setup,
+    /// asks for confirmation via `pendingSoftnetSetup` and resumes after it.
+    func start(_ name: String, options: RunOptions? = nil) {
+        let options = options ?? runOptionsStore.options(for: name)
+        runOptionsStore.save(options, for: name)
+        guard !startingVMs.contains(name) else { return }
+        startingVMs.insert(name)
         perform {
+            defer { self.startingVMs.remove(name) }
             let cli = try self.requireCLI()
-            let log = FileManager.default.temporaryDirectory.appendingPathComponent("tartui-\(name).log")
-            let process = try cli.start(name: name, options: options, logFile: log) { [weak store = self] code in
-                Task { @MainActor in
-                    store?.runProcesses[name] = nil
-                    if code != 0 {
-                        let tail = (try? String(contentsOf: log, encoding: .utf8))?
-                            .split(separator: "\n").suffix(3).joined(separator: "\n") ?? ""
-                        store?.lastError = "\(name) exited with code \(code). \(tail)"
-                    }
-                    await store?.refresh(silently: true)
-                }
+            switch await cli.preflight(options) {
+            case .none:
+                try await self.launch(name, options: options, cli: cli)
+            case let .some(.softnetNeedsSetup(path)):
+                self.pendingSoftnetSetup = PendingSoftnetSetup(vm: name, options: options, softnetPath: path)
+            case let .some(problem):
+                throw problem
             }
-            self.runProcesses[name] = process
-            try? await Task.sleep(for: .seconds(1))
-            await self.refresh(silently: true)
         }
+    }
+
+    /// Called when the user confirms the Softnet admin prompt.
+    func completeSoftnetSetup(_ pending: PendingSoftnetSetup) {
+        pendingSoftnetSetup = nil
+        startingVMs.insert(pending.vm)
+        perform {
+            defer { self.startingVMs.remove(pending.vm) }
+            try await Softnet.setUp(path: pending.softnetPath)
+            let cli = try self.requireCLI()
+            if let problem = await cli.preflight(pending.options) { throw problem }
+            try await self.launch(pending.vm, options: pending.options, cli: cli)
+        }
+    }
+
+    private func launch(_ name: String, options: RunOptions, cli: TartCLI) async throws {
+        let log = Self.logURL(for: name)
+        let process = try cli.start(name: name, options: options, logFile: log) { [weak store = self] code in
+            Task { @MainActor in
+                store?.runProcesses[name] = nil
+                if code != 0 {
+                    let tail = (try? String(contentsOf: log, encoding: .utf8))?
+                        .split(separator: "\n").suffix(8).joined(separator: "\n") ?? ""
+                    store?.lastError = "\(name) exited with code \(code).\n\(tail)\n\nFull log: \(log.path)"
+                }
+                await store?.refresh(silently: true)
+            }
+        }
+        runProcesses[name] = process
+        try? await Task.sleep(for: .seconds(1))
+        await refresh(silently: true)
+    }
+
+    /// Per-VM `tart run` output, kept in ~/Library/Logs/TartUI so it survives a failed launch.
+    static func logURL(for name: String) -> URL {
+        let fm = FileManager.default
+        let dir = fm.urls(for: .libraryDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Logs/TartUI", isDirectory: true)
+            ?? fm.temporaryDirectory
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("\(name).log")
     }
 
     func stop(_ name: String) {
@@ -174,6 +238,7 @@ final class VMStore {
         perform {
             try await self.requireCLI().delete(name)
             self.configs[name] = nil
+            self.runOptionsStore.remove(name)
             await self.refresh()
         }
     }
@@ -181,6 +246,7 @@ final class VMStore {
     func rename(_ name: String, to newName: String) {
         perform {
             try await self.requireCLI().rename(name, to: newName)
+            self.runOptionsStore.rename(name, to: newName)
             await self.refresh()
         }
     }

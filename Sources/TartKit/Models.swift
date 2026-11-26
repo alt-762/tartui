@@ -157,7 +157,7 @@ public enum CreateSource: Hashable, Sendable {
 }
 
 /// Options for `tart run`.
-public struct RunOptions: Hashable, Sendable {
+public struct RunOptions: Hashable, Sendable, Codable {
     public var noGraphics = false
     public var recovery = false
     /// Host directories to share, in tart's `name:path[:ro]` format.
@@ -175,4 +175,61 @@ public struct RunOptions: Hashable, Sendable {
     public var softnetExpose: [String] = []
 
     public init() {}
+
+    // Lenient decoding so options saved by an older build (or with fields added
+    // later) still load instead of silently resetting to defaults.
+    enum CodingKeys: String, CodingKey {
+        case noGraphics, recovery, sharedDirectories, bridgedInterface, softnet, softnetAllow, softnetExpose
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        noGraphics = (try? c.decode(Bool.self, forKey: .noGraphics)) ?? false
+        recovery = (try? c.decode(Bool.self, forKey: .recovery)) ?? false
+        sharedDirectories = (try? c.decode([String].self, forKey: .sharedDirectories)) ?? []
+        bridgedInterface = try? c.decode(String.self, forKey: .bridgedInterface)
+        softnet = (try? c.decode(Bool.self, forKey: .softnet)) ?? false
+        softnetAllow = (try? c.decode([String].self, forKey: .softnetAllow)) ?? []
+        softnetExpose = (try? c.decode([String].self, forKey: .softnetExpose)) ?? []
+    }
+}
+
+/// Remembers the run options chosen for each VM, so Softnet, shared folders etc.
+/// stick across launches and app restarts. Backed by UserDefaults.
+public struct RunOptionsStore: @unchecked Sendable {
+    private let defaults: UserDefaults
+    static let keyPrefix = "runOptions."
+
+    public init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    private func key(_ vm: String) -> String { Self.keyPrefix + vm }
+
+    /// Saved options for a VM, or defaults if none were saved.
+    public func options(for vm: String) -> RunOptions {
+        guard let data = defaults.data(forKey: key(vm)),
+              let options = try? JSONDecoder().decode(RunOptions.self, from: data)
+        else { return RunOptions() }
+        return options
+    }
+
+    public func save(_ options: RunOptions, for vm: String) {
+        if options == RunOptions() {
+            defaults.removeObject(forKey: key(vm))
+        } else if let data = try? JSONEncoder().encode(options) {
+            defaults.set(data, forKey: key(vm))
+        }
+    }
+
+    public func remove(_ vm: String) {
+        defaults.removeObject(forKey: key(vm))
+    }
+
+    /// Carries saved options over when a VM is renamed.
+    public func rename(_ vm: String, to newName: String) {
+        guard let data = defaults.data(forKey: key(vm)) else { return }
+        defaults.set(data, forKey: key(newName))
+        defaults.removeObject(forKey: key(vm))
+    }
 }

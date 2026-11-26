@@ -13,6 +13,8 @@ struct VMDetailView: View {
     @State private var softnetExpose = ""
     @State private var ip: String?
     @State private var confirmDelete = false
+    /// Which VM the form's run options were loaded for; saving waits until this matches.
+    @State private var optionsLoadedFor: String?
 
     // Editable settings (populated from `tart get`)
     @State private var cpu = 4
@@ -116,6 +118,11 @@ struct VMDetailView: View {
         } message: {
             Text("This permanently removes the VM and its disk.")
         }
+        .onChange(of: vm.name, initial: true) { loadSavedOptions() }
+        .onChange(of: currentOptions) { _, new in
+            // Remember options per VM (e.g. Softnet stays on for next launch).
+            if optionsLoadedFor == vm.name { store.saveRunOptions(new, for: vm.name) }
+        }
         .task(id: vm.name) {
             await store.loadConfig(for: vm.name)
             if let c = store.configs[vm.name] { apply(c) }
@@ -142,14 +149,36 @@ struct VMDetailView: View {
                 .buttonStyle(.borderedProminent).tint(.red)
         } else {
             Button {
-                var opts = runOptions
-                if !sharedDir.isEmpty { opts.sharedDirectories = [sharedDir] }
-                opts.softnetAllow = Self.splitList(softnetAllow)
-                opts.softnetExpose = Self.splitList(softnetExpose)
-                store.start(vm.name, options: opts)
-            } label: { Label(vm.isSuspended ? "Resume" : "Start", systemImage: "play.fill") }
-                .buttonStyle(.borderedProminent)
+                store.start(vm.name, options: currentOptions)
+            } label: {
+                if store.startingVMs.contains(vm.name) {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Label(vm.isSuspended ? "Resume" : "Start", systemImage: "play.fill")
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(store.startingVMs.contains(vm.name))
         }
+    }
+
+    /// Run options as currently shown in the form (text fields parsed).
+    private var currentOptions: RunOptions {
+        var opts = runOptions
+        opts.sharedDirectories = sharedDir.isEmpty ? [] : [sharedDir]
+        opts.softnetAllow = Self.splitList(softnetAllow)
+        opts.softnetExpose = Self.splitList(softnetExpose)
+        return opts
+    }
+
+    /// Loads the options saved for this VM into the form.
+    private func loadSavedOptions() {
+        let saved = store.runOptions(for: vm.name)
+        runOptions = saved
+        sharedDir = saved.sharedDirectories.first ?? ""
+        softnetAllow = saved.softnetAllow.joined(separator: ", ")
+        softnetExpose = saved.softnetExpose.joined(separator: ", ")
+        optionsLoadedFor = vm.name
     }
 
     /// Splits a comma- or whitespace-separated field into trimmed, non-empty items.
