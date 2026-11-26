@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="rim" gradientUnits="userSpaceOnUse" cx="480" cy="440" r="330">
+      <stop offset="0" stop-color="#9A6440"/><stop offset="0.85" stop-color="#7E4A2E"/><stop offset="1" stop-color="#6B3E26"/>
+    </radialGradient>
+    <radialGradient id="glaze" gradientUnits="userSpaceOnUse" cx="430" cy="400" r="330">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.38"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.08"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="inset" gradientUnits="userSpaceOnUse" cx="512" cy="500" r="290">
+      <stop offset="0.78" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.32"/>
+    </radialGradient>
+  </defs>
+<g transform="translate(512 512) scale(1.2) translate(-512 -512)">
+  <path d="M512 512 L315.4 315.4 A278 278 0 0 1 708.6 315.4 Z" fill="#8F3BFF"/>
+  <path d="M512 512 L708.6 315.4 A278 278 0 0 1 708.6 708.6 Z" fill="#00C8E0"/>
+  <path d="M512 512 L708.6 708.6 A278 278 0 0 1 315.4 708.6 Z" fill="#B6FF00"/>
+  <path d="M512 512 L315.4 708.6 A278 278 0 0 1 315.4 315.4 Z" fill="#FFE600"/>
+  <circle cx="512" cy="512" r="278" fill="url(#inset)"/>
+  <circle cx="512" cy="512" r="278" fill="url(#glaze)"/>
+  <g stroke="#7E4A2E" stroke-width="16" stroke-linecap="round">
+    <line x1="512" y1="512" x2="315.4" y2="315.4"/>
+    <line x1="512" y1="512" x2="708.6" y2="315.4"/>
+    <line x1="512" y1="512" x2="708.6" y2="708.6"/>
+    <line x1="512" y1="512" x2="315.4" y2="708.6"/>
+  </g>
+  <g stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="4" stroke-linecap="round">
+    <line x1="506" y1="506" x2="320" y2="320"/>
+    <line x1="518" y1="506" x2="704" y2="320"/>
+  </g>
+  <circle cx="512" cy="512" r="32" fill="url(#rim)"/>
+  <circle cx="512" cy="512" r="13" fill="#FFFFFF"/>
+  <ellipse cx="420" cy="300" rx="110" ry="36" fill="#FFFFFF" opacity="0.22" transform="rotate(-30 420 300)"/>
+  <ellipse cx="340" cy="400" rx="26" ry="10" fill="#FFFFFF" opacity="0.2" transform="rotate(-60 340 400)"/>
+</g>
+</svg>

@@ -1,0 +1,45 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "srgb:0.13333,0.12549,0.18039,1.00000",
+      "srgb:0.03137,0.03137,0.04706,1.00000"
+    ],
+    "orientation" : {
+      "start" : { "x" : 0.2, "y" : 0 },
+      "stop" : { "x" : 0.8, "y" : 1 }
+    }
+  },
+  "groups" : [
+    {
+      "name" : "Symbols",
+      "layers" : [
+        { "name" : "symbols", "image-name" : "symbols.svg", "glass" : false }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
+      "specular" : true,
+      "translucency" : { "enabled" : false, "value" : 0.5 }
+    },
+    {
+      "name" : "Slices",
+      "layers" : [
+        { "name" : "slices", "image-name" : "slices.svg", "glass" : false }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.4 },
+      "specular" : true,
+      "translucency" : { "enabled" : false, "value" : 0.5 }
+    },
+    {
+      "name" : "Crust",
+      "layers" : [
+        { "name" : "crust", "image-name" : "crust.svg", "glass" : false },
+        { "name" : "confetti", "image-name" : "confetti.svg", "glass" : false }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.6 },
+      "specular" : true,
+      "translucency" : { "enabled" : false, "value" : 0.5 }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : [ "macOS" ]
+  }
+}

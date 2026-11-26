@@ -63,8 +63,12 @@ swift test                # TartKit unit tests
 
 Or open `Package.swift` in Xcode and press Run.
 
-The app icon lives in `Resources/AppIcon.svg`. After editing it, run
-`./scripts/make_icon.sh` to regenerate `Resources/AppIcon.icns` and `AppIcon.png`.
+The app icon has two sources. `Resources/AppIcon.icon` is an Icon Composer
+document with layered artwork, giving the Liquid Glass icon on macOS 26 and
+later (open it in Icon Composer, which ships with Xcode 26+).
+`Resources/AppIcon.svg` is the flat version used for the classic `.icns`.
+After editing either one, run `./scripts/make_icon.sh` to regenerate
+`Resources/Assets.car`, `AppIcon.icns` and `AppIcon.png`.
 
 ## Releasing
 
