@@ -23,6 +23,25 @@ final class DecodingTests: XCTestCase {
         XCTAssertEqual(vms[0].state, "running")
     }
 
+    func testDecodesOSFromTartList() throws {
+        let json = """
+        [
+          {"Source":"local","Name":"mac","OS":"darwin","State":"stopped"},
+          {"Source":"local","Name":"ubuntu","OS":"linux","State":"stopped"},
+          {"Source":"local","Name":"old","State":"stopped"}
+        ]
+        """
+        let vms = try JSONDecoder().decode([TartVM].self, from: Data(json.utf8))
+        XCTAssertEqual(vms.map(\.guestOS), [.macOS, .linux, .unknown])
+        XCTAssertNil(vms[2].os)
+    }
+
+    func testGuestOSFromConfig() throws {
+        let json = #"{"CPU":2,"Memory":4096,"Disk":20,"Display":"1024x768","OS":"linux","State":"stopped"}"#
+        let cfg = try JSONDecoder().decode(TartVMConfig.self, from: Data(json.utf8))
+        XCTAssertEqual(cfg.guestOS, .linux)
+    }
+
     func testDecodesTartGet() throws {
         let json = #"{"CPU":4,"Memory":8192,"Disk":50,"Display":"1024x768","OS":"darwin","State":"stopped"}"#
         let cfg = try JSONDecoder().decode(TartVMConfig.self, from: Data(json.utf8))

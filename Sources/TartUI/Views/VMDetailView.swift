@@ -25,12 +25,12 @@ struct VMDetailView: View {
         Form {
             Section {
                 HStack(spacing: 12) {
-                    Image(systemName: "desktopcomputer")
+                    Image(systemName: store.guestOS(for: vm).symbolName)
                         .font(.system(size: 36))
                         .foregroundStyle(vm.isRunning ? .green : .secondary)
                     VStack(alignment: .leading) {
                         Text(vm.name).font(.title2.bold())
-                        Text("\(vm.state.capitalized) · \(loadedConfig?.os ?? "—")")
+                        Text("\(vm.state.capitalized) · \(osLabel)")
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -127,6 +127,11 @@ struct VMDetailView: View {
             ip = nil
             if vm.isRunning { ip = await store.ip(for: vm.name) }
         }
+    }
+
+    private var osLabel: String {
+        let os = store.guestOS(for: vm)
+        return os == .unknown ? (loadedConfig?.os ?? "—") : os.displayName
     }
 
     @ViewBuilder

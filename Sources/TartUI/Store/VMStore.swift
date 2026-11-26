@@ -28,11 +28,17 @@ final class VMStore {
     private(set) var operations: [TartOperation] = []
     private(set) var tartVersion: String?
     var lastError: String?
-    var isRefreshing = false
+    /// True while a user-visible refresh (first load, toolbar/⌘R, after an action) is running.
+    /// Background polls never set it, so the UI doesn't flicker every few seconds.
+    private(set) var isRefreshing = false
+    /// False until the first `tart list` has finished (successfully or not).
+    private(set) var hasLoaded = false
 
     /// `tart run` processes started by this app, keyed by VM name.
     private var runProcesses: [String: Process] = [:]
     private var pollTask: Task<Void, Never>?
+    /// VM names we've already run `tart get` on to learn their OS, so polling doesn't repeat it.
+    private var osLookupsAttempted: Set<String> = []
 
     private var cli: TartCLI?
 
@@ -81,11 +87,37 @@ final class VMStore {
     func refresh(silently: Bool = false) async {
         guard let cli else { return }
         if !silently { isRefreshing = true }
-        defer { isRefreshing = false }
+        defer {
+            if !silently { isRefreshing = false }
+            hasLoaded = true
+        }
         do {
             vms = try await cli.list()
         } catch {
             if !silently { lastError = error.localizedDescription }
+            return
+        }
+        await lookUpMissingOS(using: cli)
+    }
+
+    /// The guest OS of a VM or image, from `tart list` when it reports it,
+    /// otherwise from the `tart get` config we fetched for it.
+    func guestOS(for vm: TartVM) -> GuestOS {
+        if vm.guestOS != .unknown { return vm.guestOS }
+        return configs[vm.name]?.guestOS ?? .unknown
+    }
+
+    /// Older tart versions don't include `OS` in `tart list`, so fall back to one
+    /// `tart get` per VM. Runs once per name; failures are ignored (icon stays generic).
+    private func lookUpMissingOS(using cli: TartCLI) async {
+        let missing = vms.filter {
+            $0.os == nil && configs[$0.name] == nil && !osLookupsAttempted.contains($0.name)
+        }
+        for vm in missing {
+            osLookupsAttempted.insert(vm.name)
+            if let config = try? await cli.get(vm.name) {
+                configs[vm.name] = config
+            }
         }
     }
 

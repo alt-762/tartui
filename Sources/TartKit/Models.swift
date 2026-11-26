@@ -1,5 +1,29 @@
 import Foundation
 
+/// Guest operating system family, used to pick an icon.
+public enum GuestOS: Hashable, Sendable {
+    case macOS
+    case linux
+    case unknown
+
+    /// Maps tart's `OS` value ("darwin", "linux") to a family.
+    public init(tartValue: String?) {
+        switch tartValue?.lowercased() {
+        case "darwin", "macos": self = .macOS
+        case "linux": self = .linux
+        default: self = .unknown
+        }
+    }
+
+    public var displayName: String {
+        switch self {
+        case .macOS: "macOS"
+        case .linux: "Linux"
+        case .unknown: "Unknown OS"
+        }
+    }
+}
+
 /// One row of `tart list --format json`.
 ///
 /// Tart's JSON keys are capitalised (`Name`, `Source`, `State`, ...). Decoding is
@@ -26,6 +50,10 @@ public struct TartVM: Identifiable, Hashable, Sendable, Decodable {
     public let sizeGB: Int?
     public let state: String
     public let accessed: String?
+    /// Raw `OS` value ("darwin" / "linux"), if this tart version reports it in `tart list`.
+    public let os: String?
+
+    public var guestOS: GuestOS { GuestOS(tartValue: os) }
 
     public var isRunning: Bool { state.lowercased() == "running" }
     public var isSuspended: Bool { state.lowercased() == "suspended" }
@@ -39,15 +67,17 @@ public struct TartVM: Identifiable, Hashable, Sendable, Decodable {
         case state = "State"
         case running = "Running"
         case accessed = "Accessed"
+        case os = "OS"
     }
 
-    public init(name: String, source: Source, diskGB: Int?, sizeGB: Int?, state: String, accessed: String?) {
+    public init(name: String, source: Source, diskGB: Int?, sizeGB: Int?, state: String, accessed: String?, os: String? = nil) {
         self.name = name
         self.source = source
         self.diskGB = diskGB
         self.sizeGB = sizeGB
         self.state = state
         self.accessed = accessed
+        self.os = os
     }
 
     public init(from decoder: Decoder) throws {
@@ -64,6 +94,7 @@ public struct TartVM: Identifiable, Hashable, Sendable, Decodable {
             self.state = "unknown"
         }
         accessed = try? c.decode(String.self, forKey: .accessed)
+        os = try? c.decode(String.self, forKey: .os)
     }
 }
 
@@ -78,6 +109,8 @@ public struct TartVMConfig: Hashable, Sendable, Decodable {
     public var display: String
     public var os: String
     public var state: String
+
+    public var guestOS: GuestOS { GuestOS(tartValue: os) }
 
     enum CodingKeys: String, CodingKey {
         case cpu = "CPU"
