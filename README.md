@@ -67,6 +67,13 @@ swift test                # TartKit unit tests
 
 Or open `Package.swift` in Xcode and press Run.
 
+The app icon has two sources. `Resources/AppIcon.icon` is an Icon Composer
+document with layered artwork, giving the Liquid Glass icon on macOS 26 and
+later (open it in Icon Composer, which ships with Xcode 26+).
+`Resources/AppIcon.svg` is the flat version used for the classic `.icns`.
+After editing either one, run `./scripts/make_icon.sh` to regenerate
+`Resources/Assets.car`, `AppIcon.icns` and `AppIcon.png`.
+
 ## Releasing
 
 Push a version tag and GitHub Actions builds the app, packages it as a DMG and
@@ -104,4 +111,5 @@ notarized DMG, add these repository secrets:
 - [ ] Image browser for ghcr.io/cirruslabs with tags
 - [ ] Export / import (`tart export`, `tart import`)
 - [ ] Notifications when long jobs finish
-- [ ] App icon and proper Xcode project for notarized releases
+- [x] App icon
+- [ ] Proper Xcode project for notarized releases

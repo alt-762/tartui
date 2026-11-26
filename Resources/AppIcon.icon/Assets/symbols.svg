@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <mask id="bite" maskUnits="userSpaceOnUse" x="-10" y="-10" width="130" height="140">
+      <rect x="-10" y="-10" width="130" height="140" fill="#FFFFFF"/>
+      <circle cx="98" cy="62" r="16" fill="#000000"/>
+    </mask>
+  </defs>
+<g transform="translate(512 512) scale(1.2) translate(-512 -512)">
+  <!-- apple (macOS) -->
+  <g transform="translate(462 314)" mask="url(#bite)">
+    <path d="M50 32 C40 26 22 24 12 36 C0 50 4 76 14 92 C22 106 32 116 42 114 C46 113 48 110 50 110 C52 110 54 113 58 114 C68 116 78 106 86 92 C96 76 100 50 88 36 C78 24 60 26 50 32 Z" fill="#FFFFFF"/>
+    <path d="M52 26 C52 12 62 2 74 0 C74 14 64 24 52 26 Z" fill="#FFFFFF"/>
+  </g>
+  <!-- penguin (Linux) -->
+  <g transform="translate(587 448) scale(0.55)">
+    <ellipse cx="62" cy="120" rx="12" ry="36" fill="#15132B" transform="rotate(15 62 120)"/>
+    <ellipse cx="168" cy="120" rx="12" ry="36" fill="#15132B" transform="rotate(-15 168 120)"/>
+    <rect x="60" y="30" width="110" height="160" rx="55" fill="#15132B"/>
+    <ellipse cx="115" cy="130" rx="38" ry="50" fill="#FFFFFF"/>
+    <circle cx="97" cy="70" r="11" fill="#FFFFFF"/>
+    <circle cx="133" cy="70" r="11" fill="#FFFFFF"/>
+    <circle cx="99" cy="72" r="5" fill="#15132B"/>
+    <circle cx="131" cy="72" r="5" fill="#15132B"/>
+    <path d="M103 88 Q115 82 127 88 Q115 104 103 88 Z" fill="#FFB703"/>
+    <ellipse cx="92" cy="194" rx="22" ry="9" fill="#FFB703"/>
+    <ellipse cx="138" cy="194" rx="22" ry="9" fill="#FFB703"/>
+  </g>
+  <!-- secure & isolated -->
+  <circle cx="512" cy="652" r="76" fill="none" stroke="#15132B" stroke-opacity="0.9" stroke-width="5" stroke-dasharray="10 12" stroke-linecap="round"/>
+  <path d="M512 590 L562 608 L562 648 C562 680 540 702 512 714 C484 702 462 680 462 648 L462 608 Z" fill="#14121F"/>
+  <path d="M498 646 L498 634 C498 625 504 619 512 619 C520 619 526 625 526 634 L526 646" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+  <rect x="492" y="644" width="40" height="32" rx="7" fill="#FFFFFF"/>
+  <circle cx="512" cy="657" r="5" fill="#14121F"/>
+  <rect x="510" y="658" width="4" height="10" rx="2" fill="#14121F"/>
+  <!-- VM cube -->
+  <polygon points="375,452 427,482 375,512 323,482" fill="#FFFFFF"/>
+  <polygon points="323,482 375,512 375,572 323,542" fill="#FF00A8"/>
+  <polygon points="375,512 427,482 427,542 375,572" fill="#00C8E0"/>
+  <polygon points="375,452 427,482 427,542 375,572 323,542 323,482" fill="none" stroke="#15132B" stroke-opacity="0.25" stroke-width="3" stroke-linejoin="round"/>
+</g>
+</svg>

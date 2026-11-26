@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="crust" gradientUnits="userSpaceOnUse" cx="470" cy="420" r="440">
+      <stop offset="0" stop-color="#9A6440"/><stop offset="0.6" stop-color="#6B3E26"/><stop offset="1" stop-color="#3A1D0D"/>
+    </radialGradient>
+    <radialGradient id="rim" gradientUnits="userSpaceOnUse" cx="480" cy="440" r="330">
+      <stop offset="0" stop-color="#9A6440"/><stop offset="0.85" stop-color="#7E4A2E"/><stop offset="1" stop-color="#6B3E26"/>
+    </radialGradient>
+  </defs>
+<g transform="translate(512 512) scale(1.2) translate(-512 -512)">
+  <g fill="url(#crust)">
+    <circle cx="837.0" cy="512.0" r="40"/>
+    <circle cx="821.1" cy="612.4" r="40"/>
+    <circle cx="774.9" cy="703.0" r="40"/>
+    <circle cx="703.0" cy="774.9" r="40"/>
+    <circle cx="612.4" cy="821.1" r="40"/>
+    <circle cx="512.0" cy="837.0" r="40"/>
+    <circle cx="411.6" cy="821.1" r="40"/>
+    <circle cx="321.0" cy="774.9" r="40"/>
+    <circle cx="249.1" cy="703.0" r="40"/>
+    <circle cx="202.9" cy="612.4" r="40"/>
+    <circle cx="187.0" cy="512.0" r="40"/>
+    <circle cx="202.9" cy="411.6" r="40"/>
+    <circle cx="249.1" cy="321.0" r="40"/>
+    <circle cx="321.0" cy="249.1" r="40"/>
+    <circle cx="411.6" cy="202.9" r="40"/>
+    <circle cx="512.0" cy="187.0" r="40"/>
+    <circle cx="612.4" cy="202.9" r="40"/>
+    <circle cx="703.0" cy="249.1" r="40"/>
+    <circle cx="774.9" cy="321.0" r="40"/>
+    <circle cx="821.1" cy="411.6" r="40"/>
+    <circle cx="512" cy="512" r="325"/>
+  </g>
+  <g fill="#FFFFFF" opacity="0.35">
+    <ellipse cx="321" cy="240" rx="16" ry="7" transform="rotate(-45 321 240)"/>
+    <ellipse cx="410" cy="194" rx="16" ry="7" transform="rotate(-20 410 194)"/>
+    <ellipse cx="510" cy="178" rx="16" ry="7"/>
+    <ellipse cx="243" cy="314" rx="16" ry="7" transform="rotate(-60 243 314)"/>
+  </g>
+  <circle cx="512" cy="512" r="300" fill="url(#rim)"/>
+  <circle cx="512" cy="512" r="284" fill="none" stroke="#000000" stroke-opacity="0.18" stroke-width="10"/>
+</g>
+</svg>
