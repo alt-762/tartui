@@ -35,20 +35,28 @@ struct ContentView: View {
             List(selection: $selection) {
                 Section("Virtual Machines") {
                     ForEach(store.localVMs) { vm in
-                        VMRow(vm: vm).tag(SidebarItem.vm(vm.name))
+                        VMRow(vm: vm, os: store.guestOS(for: vm)).tag(SidebarItem.vm(vm.name))
                             .contextMenu { vmMenu(vm) }
                     }
                     if store.localVMs.isEmpty {
-                        Text("No VMs yet").foregroundStyle(.secondary)
+                        if store.hasLoaded {
+                            Text("No VMs yet").foregroundStyle(.secondary)
+                        } else {
+                            LoadingRow(text: "Loading VMs…")
+                        }
                     }
                 }
                 Section("Images") {
                     ForEach(store.ociImages) { image in
-                        ImageRow(image: image).tag(SidebarItem.image(image.name))
+                        ImageRow(image: image, os: store.guestOS(for: image)).tag(SidebarItem.image(image.name))
                             .contextMenu { imageMenu(image) }
                     }
                     if store.ociImages.isEmpty {
-                        Text("No pulled images").foregroundStyle(.secondary)
+                        if store.hasLoaded {
+                            Text("No pulled images").foregroundStyle(.secondary)
+                        } else {
+                            LoadingRow(text: "Loading images…")
+                        }
                     }
                 }
                 Section {
@@ -105,8 +113,14 @@ struct ContentView: View {
                 Button { sheet = .login } label: { Label("Registry Login", systemImage: "person.badge.key") }
                     .help("Log in to an OCI registry")
                 Button { Task { await store.refresh() } } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
+                    if store.isRefreshing {
+                        // Same footprint as the icon so the toolbar doesn't shift.
+                        ProgressView().controlSize(.small).frame(width: 16, height: 16)
+                    } else {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                    }
                 }
+                .help(store.isRefreshing ? "Refreshing…" : "Refresh the VM list")
                 .disabled(store.isRefreshing)
             }
         }
@@ -153,35 +167,70 @@ struct ContentView: View {
     }
 }
 
+extension GuestOS {
+    /// SF Symbol for the guest OS. There's no Linux logo in SF Symbols, so Linux uses a terminal.
+    var symbolName: String {
+        switch self {
+        case .macOS: "apple.logo"
+        case .linux: "terminal"
+        case .unknown: "desktopcomputer"
+        }
+    }
+}
+
 struct VMRow: View {
     let vm: TartVM
+    let os: GuestOS
 
     var body: some View {
         Label {
             VStack(alignment: .leading, spacing: 2) {
                 Text(vm.name)
-                Text(vm.state.capitalized).font(.caption).foregroundStyle(.secondary)
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
             }
         } icon: {
-            Image(systemName: "desktopcomputer")
+            Image(systemName: os.symbolName)
                 .foregroundStyle(vm.isRunning ? .green : vm.isSuspended ? .orange : .secondary)
+                .help(os.displayName)
         }
+    }
+
+    private var subtitle: String {
+        os == .unknown ? vm.state.capitalized : "\(os.displayName) · \(vm.state.capitalized)"
     }
 }
 
 struct ImageRow: View {
     let image: TartVM
+    let os: GuestOS
 
     var body: some View {
         Label {
             VStack(alignment: .leading, spacing: 2) {
                 Text(image.name).lineLimit(1).truncationMode(.middle)
-                if let size = image.sizeGB {
-                    Text("\(size) GB").font(.caption).foregroundStyle(.secondary)
+                if let subtitle {
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
                 }
             }
         } icon: {
-            Image(systemName: "shippingbox")
+            Image(systemName: os == .unknown ? "shippingbox" : os.symbolName)
+                .help(os.displayName)
+        }
+    }
+
+    private var subtitle: String? {
+        let parts = [os == .unknown ? nil : os.displayName, image.sizeGB.map { "\($0) GB" }].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
+struct LoadingRow: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.small)
+            Text(text).foregroundStyle(.secondary)
         }
     }
 }
