@@ -13,6 +13,7 @@ struct VMDetailView: View {
     @State private var softnetExpose = ""
     @State private var ip: String?
     @State private var confirmDelete = false
+    @State private var confirmColdBoot = false
     /// Which VM the form's run options were loaded for; saving waits until this matches.
     @State private var optionsLoadedFor: String?
 
@@ -29,7 +30,7 @@ struct VMDetailView: View {
                 HStack(spacing: 12) {
                     Image(systemName: store.guestOS(for: vm).symbolName)
                         .font(.system(size: 36))
-                        .foregroundStyle(vm.isRunning ? .green : .secondary)
+                        .foregroundStyle(vm.isRunning ? .green : vm.isSuspended ? .orange : .secondary)
                     VStack(alignment: .leading) {
                         Text(vm.name).font(.title2.bold())
                         Text("\(vm.state.capitalized) · \(osLabel)")
@@ -53,7 +54,9 @@ struct VMDetailView: View {
                 }
             }
 
-            Section("Run options") {
+            Section {
+                Toggle("Allow suspend", isOn: $runOptions.suspendable)
+                    .help("Runs with --suspendable so the VM can be suspended and resumed later. tart turns off audio for this, and closing the VM window suspends it instead of shutting it down.")
                 Toggle("Headless (no graphics window)", isOn: $runOptions.noGraphics)
                 Toggle("Boot into recovery", isOn: $runOptions.recovery)
                 HStack {
@@ -68,8 +71,14 @@ struct VMDetailView: View {
                     TextField("Expose ports (host:guest, comma-separated)", text: $softnetExpose, prompt: Text("2222:22, 8080:80"))
                         .help("--net-softnet-expose: forward host ports into the VM")
                 }
+            } header: {
+                Text("Run options")
+            } footer: {
+                if vm.isSuspended {
+                    Text("Paused with these options. Resume needs the same ones, so they're locked until you cold boot.")
+                }
             }
-            .disabled(vm.isRunning)
+            .disabled(vm.isRunning || vm.isSuspended)
 
             Section("Hardware") {
                 Stepper("CPU cores: \(cpu)", value: $cpu, in: 1...ProcessInfo.processInfo.activeProcessorCount)
@@ -95,7 +104,7 @@ struct VMDetailView: View {
                     .disabled(!hasChanges)
                 }
             }
-            .disabled(vm.isRunning)
+            .disabled(vm.isRunning || vm.isSuspended)
 
             Section("Storage") {
                 LabeledContent("Allocated disk", value: vm.diskGB.map { "\($0) GB" } ?? "—")
@@ -112,6 +121,11 @@ struct VMDetailView: View {
                 Button("Delete…", role: .destructive) { confirmDelete = true }
                     .disabled(vm.isRunning)
             }
+        }
+        .confirmationDialog("Cold boot \(vm.name)?", isPresented: $confirmColdBoot) {
+            Button("Cold Boot", role: .destructive) { store.coldBoot(vm.name, options: currentOptions) }
+        } message: {
+            Text("This discards the paused state and starts the VM fresh. Anything unsaved in the VM is lost.")
         }
         .confirmationDialog("Delete \(vm.name)?", isPresented: $confirmDelete) {
             Button("Delete", role: .destructive) { store.delete(vm.name) }
@@ -143,22 +157,28 @@ struct VMDetailView: View {
 
     @ViewBuilder
     private var lifecycleButtons: some View {
-        if vm.isRunning {
+        let busy = store.startingVMs.contains(vm.name) || store.suspendingVMs.contains(vm.name)
+        if busy {
+            ProgressView().controlSize(.small)
+            Text(store.suspendingVMs.contains(vm.name) ? "Suspending…" : "Starting…")
+                .foregroundStyle(.secondary)
+        } else if vm.isRunning {
             Button { store.suspend(vm.name) } label: { Label("Suspend", systemImage: "pause.fill") }
+                .disabled(!store.canSuspend(vm.name))
+                .help(store.canSuspend(vm.name)
+                      ? "Save the VM's state and stop it, to resume later"
+                      : "This VM was started without \"Allow suspend\". Stop it, turn that on, and start it again to suspend.")
             Button { store.stop(vm.name) } label: { Label("Stop", systemImage: "stop.fill") }
                 .buttonStyle(.borderedProminent).tint(.red)
+        } else if vm.isSuspended {
+            Button { confirmColdBoot = true } label: { Label("Cold Boot", systemImage: "power") }
+                .help("Discard the paused state and start fresh")
+            Button { store.resume(vm.name) } label: { Label("Resume", systemImage: "play.fill") }
+                .buttonStyle(.borderedProminent)
+                .help("Continue from where the VM was paused")
         } else {
-            Button {
-                store.start(vm.name, options: currentOptions)
-            } label: {
-                if store.startingVMs.contains(vm.name) {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Label(vm.isSuspended ? "Resume" : "Start", systemImage: "play.fill")
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(store.startingVMs.contains(vm.name))
+            Button { store.start(vm.name, options: currentOptions) } label: { Label("Start", systemImage: "play.fill") }
+                .buttonStyle(.borderedProminent)
         }
     }
 

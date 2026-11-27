@@ -162,6 +162,9 @@ struct ContentView: View {
         if vm.isRunning {
             Button("Stop") { store.stop(vm.name) }
             Button("Suspend") { store.suspend(vm.name) }
+                .disabled(!store.canSuspend(vm.name) || store.suspendingVMs.contains(vm.name))
+        } else if vm.isSuspended {
+            Button("Resume") { store.resume(vm.name) }
         } else {
             Button("Start") { store.start(vm.name) }
         }

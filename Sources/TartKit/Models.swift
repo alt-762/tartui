@@ -173,13 +173,29 @@ public struct RunOptions: Hashable, Sendable, Codable {
     /// Port forwards from host to VM under Softnet, as `host:guest`
     /// (`--net-softnet-expose`).
     public var softnetExpose: [String] = []
+    /// Start with `--suspendable`, which tart needs before `tart suspend` can save
+    /// the VM's state. Without it, a suspend request makes tart shut the VM down.
+    /// Costs audio (tart disables devices that can't be snapshotted), and closing
+    /// the VM window then suspends instead of stopping.
+    public var suspendable = true
 
     public init() {}
+
+    /// Options to resume a suspended VM with. The saved state can only be restored
+    /// into the same device setup it was taken from, so this keeps the options the VM
+    /// was started with, forces `--suspendable`, and drops recovery mode (a restore
+    /// continues where the VM left off; it doesn't boot).
+    public var forResume: RunOptions {
+        var opts = self
+        opts.suspendable = true
+        opts.recovery = false
+        return opts
+    }
 
     // Lenient decoding so options saved by an older build (or with fields added
     // later) still load instead of silently resetting to defaults.
     enum CodingKeys: String, CodingKey {
-        case noGraphics, recovery, sharedDirectories, bridgedInterface, softnet, softnetAllow, softnetExpose
+        case noGraphics, recovery, sharedDirectories, bridgedInterface, softnet, softnetAllow, softnetExpose, suspendable
     }
 
     public init(from decoder: Decoder) throws {
@@ -191,6 +207,7 @@ public struct RunOptions: Hashable, Sendable, Codable {
         softnet = (try? c.decode(Bool.self, forKey: .softnet)) ?? false
         softnetAllow = (try? c.decode([String].self, forKey: .softnetAllow)) ?? []
         softnetExpose = (try? c.decode([String].self, forKey: .softnetExpose)) ?? []
+        suspendable = (try? c.decode(Bool.self, forKey: .suspendable)) ?? true
     }
 }
 

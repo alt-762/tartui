@@ -38,7 +38,7 @@ final class LaunchTests: XCTestCase {
 
     func testMacOSDefaultRunArguments() {
         let cli = TartCLI(binary: URL(fileURLWithPath: "/usr/bin/true"))
-        XCTAssertEqual(cli.runArguments(name: "sequoia", options: RunOptions()), ["run", "sequoia"])
+        XCTAssertEqual(cli.runArguments(name: "sequoia", options: RunOptions()), ["run", "sequoia", "--suspendable"])
     }
 
     func testRecoveryAndBridged() {
@@ -47,14 +47,14 @@ final class LaunchTests: XCTestCase {
         opts.recovery = true
         opts.bridgedInterface = "en0"
         XCTAssertEqual(cli.runArguments(name: "vm", options: opts),
-                       ["run", "vm", "--recovery", "--net-bridged", "en0"])
+                       ["run", "vm", "--suspendable", "--recovery", "--net-bridged", "en0"])
     }
 
     func testSoftnetWithoutExtras() {
         let cli = TartCLI(binary: URL(fileURLWithPath: "/usr/bin/true"))
         var opts = RunOptions()
         opts.softnet = true
-        XCTAssertEqual(cli.runArguments(name: "vm", options: opts), ["run", "vm", "--net-softnet"])
+        XCTAssertEqual(cli.runArguments(name: "vm", options: opts), ["run", "vm", "--suspendable", "--net-softnet"])
     }
 
     // MARK: - Environment
