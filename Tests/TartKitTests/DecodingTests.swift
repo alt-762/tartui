@@ -56,7 +56,7 @@ final class DecodingTests: XCTestCase {
         opts.noGraphics = true
         opts.sharedDirectories = ["src:/Users/me/src"]
         XCTAssertEqual(cli.runArguments(name: "vm", options: opts),
-                       ["run", "vm", "--no-graphics", "--dir", "src:/Users/me/src"])
+                       ["run", "vm", "--suspendable", "--no-graphics", "--dir", "src:/Users/me/src"])
     }
 
     func testRunArgumentsSoftnet() {
@@ -67,7 +67,7 @@ final class DecodingTests: XCTestCase {
         opts.softnetAllow = ["192.168.1.0/24", "10.0.0.0/8"]
         opts.softnetExpose = ["2222:22"]
         XCTAssertEqual(cli.runArguments(name: "vm", options: opts),
-                       ["run", "vm", "--net-softnet",
+                       ["run", "vm", "--suspendable", "--net-softnet",
                         "--net-softnet-allow", "192.168.1.0/24,10.0.0.0/8",
                         "--net-softnet-expose", "2222:22"])
     }
