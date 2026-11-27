@@ -1,5 +1,20 @@
 import Foundation
 
+public enum SuspendError: LocalizedError, Equatable, Sendable {
+    /// tart couldn't save the VM's state and shut it down instead.
+    case vmStoppedInstead(String)
+    case timedOut(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case let .vmStoppedInstead(name):
+            return "\(name) couldn't be suspended, so tart shut it down instead. Suspending needs a macOS 14 or newer host and a VM started with \"Allow suspend\" on."
+        case let .timedOut(name):
+            return "\(name) is taking too long to suspend. It may still be saving its state; check again in a moment."
+        }
+    }
+}
+
 public enum TartCLIError: LocalizedError, Sendable {
     case binaryNotFound
     case decodingFailed(String)
@@ -146,6 +161,7 @@ public struct TartCLI: Sendable {
     /// lifetime of the VM, so callers launch it detached.
     public func runArguments(name: String, options: RunOptions) -> [String] {
         var args = ["run", name]
+        if options.suspendable { args.append("--suspendable") }
         if options.noGraphics { args.append("--no-graphics") }
         if options.recovery { args.append("--recovery") }
         for dir in options.sharedDirectories { args += ["--dir", dir] }
@@ -196,8 +212,41 @@ public struct TartCLI: Sendable {
         try await run(args)
     }
 
-    public func suspend(_ name: String) async throws {
+    /// `tart get <name>` state: "running", "suspended" or "stopped".
+    public func state(_ name: String) async throws -> String {
+        try await get(name).state.lowercased()
+    }
+
+    /// Suspends a running VM and waits until its state has been saved.
+    ///
+    /// `tart suspend` only signals the `tart run` process and returns at once; the
+    /// snapshot is written afterwards. If tart can't snapshot the VM (it wasn't
+    /// started with `--suspendable`, or the host is older than macOS 14) it shuts
+    /// the VM down instead, and `tart suspend` still exits 0. So this polls the
+    /// state and reports that case instead of treating it as success.
+    public func suspend(
+        _ name: String,
+        timeout: Duration = .seconds(120),
+        pollInterval: Duration = .milliseconds(500)
+    ) async throws {
         try await run(["suspend", name])
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+        while true {
+            switch try await state(name) {
+            case "suspended": return
+            case "stopped": throw SuspendError.vmStoppedInstead(name)
+            default:
+                guard clock.now < deadline else { throw SuspendError.timedOut(name) }
+                try await Task.sleep(for: pollInterval)
+            }
+        }
+    }
+
+    /// Throws away a suspended VM's saved state, so the next start is a cold boot.
+    /// tart does this with `tart stop` on a suspended VM.
+    public func discardSuspendedState(_ name: String) async throws {
+        try await run(["stop", name])
     }
 
     public func rename(_ name: String, to newName: String) async throws {

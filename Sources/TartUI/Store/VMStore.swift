@@ -24,7 +24,15 @@ struct PendingSoftnetSetup: Identifiable, Equatable {
     let vm: String
     let options: RunOptions
     let softnetPath: String
+    /// Discard the VM's suspended state before launching (cold boot).
+    var coldBoot = false
     var id: String { vm }
+}
+
+/// An error whose text is already written for the user.
+struct StoreError: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
 }
 
 /// App-wide state. Owns the TartCLI and is the single place views go through.
@@ -43,12 +51,16 @@ final class VMStore {
     private(set) var hasLoaded = false
     /// VMs whose `tart run` is being prepared or launched, so Start can't be double-clicked.
     private(set) var startingVMs: Set<String> = []
+    /// VMs whose state is being saved by `tart suspend`.
+    private(set) var suspendingVMs: Set<String> = []
     /// Set when a Softnet start needs the user to approve the admin prompt.
     var pendingSoftnetSetup: PendingSoftnetSetup?
     private let runOptionsStore = RunOptionsStore()
 
     /// `tart run` processes started by this app, keyed by VM name.
     private var runProcesses: [String: Process] = [:]
+    /// Options each app-started VM is running with, so the UI knows whether it can suspend.
+    private var launchedOptions: [String: RunOptions] = [:]
     private var pollTask: Task<Void, Never>?
     /// VM names we've already run `tart get` on to learn their OS, so polling doesn't repeat it.
     private var osLookupsAttempted: Set<String> = []
@@ -160,9 +172,42 @@ final class VMStore {
     /// Starts a VM with the given options, or with its saved options when nil.
     /// Runs host/Softnet checks first; if Softnet needs its one-time admin setup,
     /// asks for confirmation via `pendingSoftnetSetup` and resumes after it.
+    ///
+    /// A suspended VM is resumed instead (see `resume`), since its saved state only
+    /// restores with the options it was started with.
     func start(_ name: String, options: RunOptions? = nil) {
+        if vms.first(where: { $0.name == name && $0.source == .local })?.isSuspended == true {
+            resume(name)
+            return
+        }
         let options = options ?? runOptionsStore.options(for: name)
         runOptionsStore.save(options, for: name)
+        launchWithChecks(name, options: options)
+    }
+
+    /// Resumes a suspended VM from its saved state, using the options it was started with.
+    func resume(_ name: String) {
+        launchWithChecks(name, options: runOptionsStore.options(for: name).forResume)
+    }
+
+    /// Discards a suspended VM's saved state and boots it fresh with the given
+    /// (or saved) options. Anything unsaved in the guest is lost.
+    func coldBoot(_ name: String, options: RunOptions? = nil) {
+        let options = options ?? runOptionsStore.options(for: name)
+        runOptionsStore.save(options, for: name)
+        launchWithChecks(name, options: options, coldBoot: true)
+    }
+
+    /// Whether the Suspend action should be offered for a running VM. A VM this app
+    /// started without `--suspendable` would be shut down by tart, not suspended.
+    /// VMs started elsewhere are allowed; `suspend` reports if tart stops them.
+    func canSuspend(_ name: String) -> Bool {
+        launchedOptions[name]?.suspendable ?? true
+    }
+
+    /// Runs the host/Softnet checks and launches. With `coldBoot`, the saved state is
+    /// discarded only once the checks pass, so a failed or cancelled start keeps it.
+    private func launchWithChecks(_ name: String, options: RunOptions, coldBoot: Bool = false) {
         guard !startingVMs.contains(name) else { return }
         startingVMs.insert(name)
         perform {
@@ -170,9 +215,11 @@ final class VMStore {
             let cli = try self.requireCLI()
             switch await cli.preflight(options) {
             case .none:
+                if coldBoot { try await self.discardStateIfSuspended(name, cli: cli) }
                 try await self.launch(name, options: options, cli: cli)
             case let .some(.softnetNeedsSetup(path)):
-                self.pendingSoftnetSetup = PendingSoftnetSetup(vm: name, options: options, softnetPath: path)
+                self.pendingSoftnetSetup = PendingSoftnetSetup(
+                    vm: name, options: options, softnetPath: path, coldBoot: coldBoot)
             case let .some(problem):
                 throw problem
             }
@@ -188,7 +235,14 @@ final class VMStore {
             try await Softnet.setUp(path: pending.softnetPath)
             let cli = try self.requireCLI()
             if let problem = await cli.preflight(pending.options) { throw problem }
+            if pending.coldBoot { try await self.discardStateIfSuspended(pending.vm, cli: cli) }
             try await self.launch(pending.vm, options: pending.options, cli: cli)
+        }
+    }
+
+    private func discardStateIfSuspended(_ name: String, cli: TartCLI) async throws {
+        if try await cli.state(name) == "suspended" {
+            try await cli.discardSuspendedState(name)
         }
     }
 
@@ -196,18 +250,32 @@ final class VMStore {
         let log = Self.logURL(for: name)
         let process = try cli.start(name: name, options: options, logFile: log) { [weak store = self] code in
             Task { @MainActor in
-                store?.runProcesses[name] = nil
-                if code != 0 {
-                    let tail = (try? String(contentsOf: log, encoding: .utf8))?
-                        .split(separator: "\n").suffix(8).joined(separator: "\n") ?? ""
-                    store?.lastError = "\(name) exited with code \(code).\n\(tail)\n\nFull log: \(log.path)"
+                guard let store else { return }
+                store.runProcesses[name] = nil
+                store.launchedOptions[name] = nil
+                // A failed suspend is reported by `suspend` itself, with the same log.
+                let failedSuspend = store.suspendingVMs.contains(name)
+                    || LaunchHints.suspendFailure(inLog: log) != nil
+                if code != 0 && !failedSuspend {
+                    store.lastError = Self.exitMessage(name: name, code: code, log: log)
                 }
-                await store?.refresh(silently: true)
+                await store.refresh(silently: true)
             }
         }
         runProcesses[name] = process
+        launchedOptions[name] = options
         try? await Task.sleep(for: .seconds(1))
         await refresh(silently: true)
+    }
+
+    /// Error text for a `tart run` that exited with a non-zero code: the last lines
+    /// of its log plus a hint for known causes.
+    static func exitMessage(name: String, code: Int32, log: URL) -> String {
+        let text = (try? String(contentsOf: log, encoding: .utf8)) ?? ""
+        let tail = text.split(separator: "\n").suffix(8).joined(separator: "\n")
+        var message = "\(name) exited with code \(code).\n\(tail)"
+        if let hint = LaunchHints.hint(forLog: text) { message += "\n\n\(hint)" }
+        return message + "\n\nFull log: \(log.path)"
     }
 
     /// Per-VM `tart run` output, kept in ~/Library/Logs/TartUI so it survives a failed launch.
@@ -227,9 +295,23 @@ final class VMStore {
         }
     }
 
+    /// Suspends a running VM and waits until tart has saved its state.
     func suspend(_ name: String) {
+        guard !suspendingVMs.contains(name) else { return }
+        suspendingVMs.insert(name)
         perform {
-            try await self.requireCLI().suspend(name)
+            defer { self.suspendingVMs.remove(name) }
+            do {
+                try await self.requireCLI().suspend(name)
+            } catch let error as SuspendError {
+                await self.refresh()
+                var message = error.localizedDescription
+                if case .vmStoppedInstead = error,
+                   let detail = LaunchHints.suspendFailure(inLog: Self.logURL(for: name)) {
+                    message += "\n\ntart said: \(detail)"
+                }
+                throw StoreError(message: message)
+            }
             await self.refresh()
         }
     }
